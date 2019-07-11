@@ -7,7 +7,8 @@
 # Files to be analysed were in .gz format
 # .gz means the file has been compressed to reduce its size, and must be decompressed using gunzip to be used.
 # -k allows retention of input files. 
-gunzip *.gz
+# $1 means it parses the first commandline argument
+gunzip -k *.gz
 
 # Files are now stored in FASTQ format (.fastq)
 # Fastq files contain the read information produced from sequencing
@@ -21,8 +22,8 @@ gunzip *.gz
 
 
 
-# Total number of reads in each file was then calculated
-# A line count was performed to find the total number of lines, which was divided by 4 to find the total number of reads in a file
+# Total number of reads in each file is then calculated
+# A line count is performed to find the total number of lines, which is divided by 4 to find the total number of reads in a file
 # This number can then be doubled, as pair-end sequencing provided both forward and reverse reads, giving the total number of reads.
 # -l this option allows for counting of lines within a file, with other options allowing word/character count etc.
 wc -l file.fastq
@@ -32,7 +33,7 @@ wc -l file.fastq
 # It wont be exact as some reads will be less than 150, and the genome of the isolate may differ in size.
 
 
-# The fastQC program was then used to assess the quality of the reads in each file
+# The fastQC program is then used to assess the quality of the reads in each file
 # This produces a .HTML file allowing visualization of different aspects of quality
 # This includes basic information such as sequence length, GC content and sequences flagged as poor quality
 # The report indicates any need for adapter trimming, duplicate removal, potential contamination removal etc.
@@ -68,7 +69,7 @@ bwa index reference_genome.fna
 # This outputs a .sam file
 # -t specifies number of threads used
 # -o specifies output file
-bwa mem -t threadINT reference_genome.fna forward_reads reverse_reads -o alignment.sam 
+bwa mem -t threadINT reference_genome.fna forward_reads.fastq reverse_reads.fastq -o alignment.sam 
 
 # Sequence Alignment Map (SAM) is a text-base format
 # The format contains a header section beginning with an '@' character and relevent information
@@ -78,27 +79,88 @@ bwa mem -t threadINT reference_genome.fna forward_reads reverse_reads -o alignme
 # SAM files can be stored in binary as BAM files
 
 
+
+
 # SAMtools is used to analyse SAM files
 # Samtools view is used to view maps within the file, with parameters used to specify target sequences
 # -f INT	is used to include reads with all of the flags in INT present
 # -f 4		is used to view all unmapped reads
-# -b 		outputs a BAM file
 # -o 		output file
-samtools view -f 4 -b -o unmapped.bam align.sam
+samtools view -f 4 -o unmapped.sam alignment.sam
+
+# The number unmapped reads is then counted by extracted lines containing the correct header found once per read line counting
+# grep retrieves all lines with the quoted term
+# the '|' character sends the product into the next command, in this case a line count
+# "NB501589" is here an example and specific to the data
+grep "NB501589:" unmapped.sam | wc -l
+
+# The above is repeated to count total number of maps using the alignment file
+grep "NB501589:" alignment.sam | wc -l
+
+#Proportion or percentage mapped/unmapped reads is then found through simple math
 
 
+# The original SAM file is converted to a BAM file
+# Binary alignment files are compressed versions of SAM files, but still allow analysis using SAMtools.
+# This is performed using samtools view
+# -b 	specifies the output file to be a BAM file
+# -o 	output file
+# -S 	ignored (input format is automatically detected)
+samtools -S -b -o alignment.bam alignment.sam
+
+# This BAM file is then sorted using samtools sort
+# BAM files can be sorted by different variables
+# -n 		sort by read name
+# -t TAG	sort by value of TAG. Uses position as secondary index or read name if -n is used
+# -o 		output file
+# -O BAM 	output format, (SAM, BAM, CRAM), tries to match suffix if not specified
+samtools sort -O BAM -o alignment.sorted.bam alignment.bam
+
+# The sorted BAM files then had statistics viewed using samtools flagstats
+# This gives general statistics, such as reads mapped, and also duplicate number
+# Duplicates may need to be removed in low quality sequencing data
+# This tells us number of unmapped reads without the need for extracting using "view -f 4"
+# This command usually prints stats to the screen, and does not have a specify output file option. so '>' is used
+samtools flagstat alignment.sorted.bam > alignment.sorted.bam.stats
+
+# Once sorted, the sorted BAM files must be indexed
+# samtools index allows a coordinate-sorted BAM (or CRAM) file to be indexed for fast random access
+# This index is needed when region arguments are used to limit samtools view and similar commands to regions of interest
+samtools index alignment.sorted.bam alignment.index
 
 
+# Duplicates are removed using samtools rmdup
+# In NGS, PCR is used. Genomes are broken up and amplified, before being sequenced.
+# However, sometimes there is a bias in which fragments are amplified the most. 
+# Hence, potential duplicates can be highlighted and removed.
+# Only the duplicate with the highest mapping quality will be kept
+# Does not work for unpaired reads
+# -s removes duplicates for single-end reads. By default, the command works for paired-end only
+# -S treat paired-end and single-end reads
+samtools rmdup -sS alignment.sorted.bam alignment.rmdups.sorted.bam
 
 
-# Examine sorted reads to create BCF file
-# BCF file is binary format of VCF file (Variant Calling Format)
-# -f description
-bcftools mpileup -f ~/Desktop/WICKLOW/Reference_Mbovis/GCF_000195835.2_ASM19583v2_genomic.fna align_23.sorted.bam -o 
+# Next, variant call analysis is performed. This uses a reference genome to inspect SNPs, INDELs and other structural variations
+# The Variant Call Format (VCF) is used to store variant call information. BCF is the binary version of a VCF.
+# It contains meta-info lines, a header line, and positional information.
+# A BCF file is made using the samtools mpileup command, which is then be used to create a VCF file.
+# -o	specifies output
+# -u 	output is uncompressed, preferrable for piping
+# -g 	specifies .bcf output
+# -f 	reference genome
+samtools mpileup -g -f ~/Desktop/WICKLOW/Reference_Mbovis/GCF_000195835.2_ASM19583v2_genomic.fna -o alignment.bcf alignment.rmdups.sorted.bam
 
-# Calling variants from BCF file
-# -m
-# -v
-# -O
-# -o
-bcftools call -mv -Ov -o align_23.vcf
+# The BCF file is then used to call variants using BCFtools
+# This produces a vcf file which includes information about variations found within the genome, such as SNPs
+# This is done using the call command
+# -o 		specifies output file
+# -Ov 		specifies uncompressed VCF file type
+# -Oz 		specifies compressed VCF file type
+# -Ou 		specifies uncompressed BCF file type
+# -Ob 		specifies compressed BCF file type
+# -c 		tells command to use consensus caller
+# -mv 		tells command to use multiallelic calling
+# --ploidy	gives predefined ploidy
+bcftools call -Ov --ploidy 1 -o alignment.vcf -mv alignment.bcf
+
+
