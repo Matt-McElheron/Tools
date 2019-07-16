@@ -38,7 +38,7 @@ wc -l file.fastq
 # This includes basic information such as sequence length, GC content and sequences flagged as poor quality
 # The report indicates any need for adapter trimming, duplicate removal, potential contamination removal etc.
 # The report can be used to help explain any potential downstream problems.
-fastqc *.fastqc
+fastqc *.fastq
 
 # While often uneeded due to modern sequence technology, a trim step is often used for quality assurance
 # Adapters are short sequences ligated during PCR-based sequencing methods, not originating from the samples DNA.
@@ -106,7 +106,7 @@ grep "NB501589:" alignment.sam | wc -l
 # -b 	specifies the output file to be a BAM file
 # -o 	output file
 # -S 	ignored (input format is automatically detected)
-samtools -S -b -o alignment.bam alignment.sam
+samtools view -S -b -o alignment.bam alignment.sam
 
 # This BAM file is then sorted using samtools sort
 # BAM files can be sorted by different variables

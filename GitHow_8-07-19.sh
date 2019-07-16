@@ -19,7 +19,8 @@ git add .
 # -m allows a message to be added
 git commit -m "hello future me"
 
-
+# Changes are then sent to GitHub using push
+git push
 
 
 
