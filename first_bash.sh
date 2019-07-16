@@ -2,10 +2,11 @@
 
 # DATE: 11-07-19
 # TASK: beginning my first bash
-# AUTHOR: Matt mcElheron
+# AUTHOR: Matt McElheron
 
+# Command line structure
+# REFERENCE_GENOME ThreadINT *.fastq.gz is general input
 
-# REFERENCE_GENOME *.fastq.gz is general input
 
 
 # Before aligning reads to a reference genome, the genome itself needs to be indexed using bwa index
@@ -14,7 +15,7 @@
 # The indexing is often perform within a new directory, as many new files are created when indexing.
 # Programs requiring an indexed genome need only the original genome as input, and know to search the dir for the accompanying files
 # -p STR is optional and adds STR as a prefix for output database
-#bwa index $1
+bwa index $1
 
 
 # Here we make a for loop to iterate over the input
@@ -35,6 +36,9 @@ for fastq_file in ${@:3}; do
 		# Here we unzip the reverse read with the forward, so they can be used together downstream
 		gunzip $fastq_file
 		gunzip "${fastq_file//R1*}"R2"${fastq_file//*R1}"
+
+
+		
 	fi
 
 
@@ -84,6 +88,7 @@ for fastq_file in ${@:3}; do
 	# This outputs a .sam file
 	# -t specifies number of threads used
 	# -o specifies output file
+
 		bwa mem -t $2 $1 trimmed_$unzipped_file trimmed_"${unzipped_file//R1*}"R2"${unzipped_file//*R1}" -o "${unzipped_file//-*}".sam 
 
 
@@ -103,6 +108,13 @@ for fastq_file in ${@:3}; do
 
 
 	# PERFORM UNMAPPED ANALYSIS SCRIPT HERE??
+
+
+
+
+
+
+
 
 
 	# The original SAM file is converted to a BAM file
@@ -175,9 +187,7 @@ for fastq_file in ${@:3}; do
 
 	fi
 
-
-
-
+############# Final contam compilation etc
 
 done
 
