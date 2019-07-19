@@ -4,6 +4,7 @@
 # TASK: Automated Git tool
 # AUTHOR: Matt mcElheron
 
+
 echo "Jeeves will now get your gits in order"
 # First a file is made or changed
 # Files are then added to the staging area by using the git add command and passing necessary options
