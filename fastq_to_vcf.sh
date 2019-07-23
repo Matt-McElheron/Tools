@@ -13,6 +13,8 @@ thread_number=$2
 num_blasts=$3
 contam_file=$4
 contam_file_summary="${contam_file//.csv}""_summary.csv"
+contam_file_species="${contam_file//.csv}""_species.csv"
+
 
 # These are universal adapter sequences removed from the reads
 adap1=AGATCGGAAGAG
@@ -57,6 +59,7 @@ for fastq_file in ${@:5}; do
 
 	# This prefix is going to be used to name files after both reads are combined into sam files, bam files, vcf files etc..
 	prefix="${unzipped_forward//-*}"
+	echo $prefix
 
 	# The fastQC program is then used to assess the quality of the reads in each file
 	# This produces a .HTML file allowing visualization of different aspects of quality
@@ -103,8 +106,6 @@ for fastq_file in ${@:5}; do
 	rm trimmed_$unzipped_forward trimmed_$unzipped_reverse
 
 	# The fastq files can be compressed to save space
-	echo $unzipped_forward 
-	echo $unzipped_reverse
 	gzip $unzipped_forward $unzipped_reverse
 
 
@@ -120,14 +121,14 @@ for fastq_file in ${@:5}; do
 	# -f INT	is used to include reads with all of the flags in INT present
 	# -f 4		is used to view all unmapped reads
 	# -o 		output file
-	samtools view -f 4 -o $prefix_unmapped.sam $prefix.sam
+	samtools view -f 4 -o $prefix"_unmapped.sam" $prefix.sam
 
 
 	# PERFORM UNMAPPED ANALYSIS SCRIPT HERE??
 	# Here a python script is called on each unmapped read file
 	# The file has an amount of randomly selected reads Blasted to determine their source
 	# requires unmapped read file (.sam), amount to be blasted, and the minimum read length to be blasted, and output file as parameters
-	python ~/Desktop/Matt_py/pandas_blast.py $prefix_unmapped.sam num_blasts 60 contam_file
+	python3 ~/Desktop/Matt_py/pandas_blast.py $prefix"_unmapped.sam" $num_blasts 60 $contam_file
 
 
 
@@ -205,4 +206,7 @@ done
 
 
 # The script for combining unmapped read data is then called
-python ~/Desktop/Matt_py/Master_unmapped.py contam_file contam_file_summary
+python3 ~/Desktop/Matt_py/Master_unmapped.py $contam_file $contam_file_summary
+
+# This script finds out which contam is which
+python3 ~/Desktop/Matt_py/taxid.py $contam_file_summary $contam_file_species
